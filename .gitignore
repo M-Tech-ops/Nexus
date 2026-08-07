@@ -1,0 +1,6 @@
+*.env
+/venv
+/.vscode
+/build
+/backend/models
+*__pycache__
