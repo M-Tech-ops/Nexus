@@ -1,10 +1,18 @@
-# NexusAI_Shell — Dynamic Island Window Scaffold
+# Nexus AI
 
-Frameless, translucent, always-on-top Qt 6 widget that morphs between
-Idle / Compact / Expanded sizes at the top-center of the screen, with
-Windows acrylic blur-behind. This is just the frontend shell — no backend
-connection yet.
+> A local-first desktop AI assistant built around a native Qt/C++ interface, a Python backend, local LLM inference, persistent memory, and real-world integrations.
 
+Nexus AI is an experimental **local desktop AI assistant** designed to sit quietly on your desktop and act as a persistent interface between you, your computer, and the information you work with every day.
+
+Instead of being just another chatbot, Nexus is being built around a simple idea:
+
+> **The AI should reason, while the backend provides the facts.**
+
+Emails, tasks, deadlines, projects, and other information are handled by dedicated backend services and then supplied to the local LLM as structured context.
+
+The long-term goal is to create a fast, private, extensible assistant that feels like a native part of the operating system.
+
+---
 ## Build (Windows, MSVC + Ninja — matches the project's existing toolchain)
 
 1. Open the **x64 Native Tools Command Prompt for VS**.
@@ -25,23 +33,40 @@ connection yet.
    If it can't find Qt DLLs at runtime, either run `windeployqt` on the
    .exe or add Qt's `bin` dir to `PATH`.
 
-## What's here
 
-- `DynamicIslandWindow.{h,cpp}` — the widget itself: frameless/translucent
-  window, rounded-corner mask, geometry animation between the three states,
-  and the Windows-only acrylic blur hook (`SetWindowCompositionAttribute`,
-  resolved dynamically so it degrades gracefully elsewhere).
-- `main.cpp` — launches the window and (temporarily) cycles through states
-  on a timer so you can see it working standalone. Click the pill to cycle
-  states manually. Remove the timer demo once this is wired to real events.
 
-## Known gaps / next steps
+## ✨ Features
 
-- **No backend connection yet.** State changes should eventually come from
-  the Python backend over a WebSocket (email received, voice command,
-  AI response ready, etc.) instead of the click handler / demo timer here.
-- **Acrylic tint/opacity is a placeholder** (`0x99201818`) — tune once you
-  have real content in the expanded state.
+### 🧠 Local AI
+
+Nexus uses a locally running LLM rather than depending on a cloud AI API for its core reasoning.
+
+This provides:
+
+- Local inference
+- Better privacy
+- No dependency on cloud inference for normal conversations
+- Control over the model and inference parameters
+- Ability to build custom tools around the model
+
+The AI layer is intentionally separated from the tools and services that provide information.
+
+---
+
+### 🖥️ Native Qt/C++ Desktop UI
+
+The frontend is built using **Qt and C++**.
+
+The UI is designed around a compact, dynamic desktop panel inspired by modern "Dynamic Island / Dynamic Bar" interfaces.
+
+Instead of occupying the entire screen, Nexus can remain as a small pill near the top of the screen.
+
+Example:
+
+```text
+┌────────────────────────┐
+│ Nexus AI           ●   │
+└────────────────────────┘
 - **Single monitor assumed** for centering; multi-monitor / DPI-aware
   positioning isn't handled yet.
 - **Content of the expanded state is a stub label** — this scaffold is
