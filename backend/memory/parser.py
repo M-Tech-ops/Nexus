@@ -11,7 +11,7 @@ This module does NOT:
 - Modify projects, deadlines, or tasks.
 
 It only identifies the requested memory operation and extracts
-the information that can be determined reliably.
+information that can be determined reliably.
 """
 
 from __future__ import annotations
@@ -23,9 +23,7 @@ from typing import Optional
 
 @dataclass
 class MemoryRequest:
-    """
-    Structured representation of a memory operation.
-    """
+    """Structured representation of a memory operation."""
 
     action: str
 
@@ -45,7 +43,6 @@ class MemoryRequest:
 
 
 class MemoryParser:
-
     # =========================================================
     # Public API
     # =========================================================
@@ -54,8 +51,9 @@ class MemoryParser:
         """
         Parse a user prompt into a MemoryRequest.
 
-        Returns None when the prompt does not appear to contain
-        a memory operation.
+        READ operations are checked before WRITE operations so that
+        questions such as "What deadlines do I have?" can never be
+        mistaken for a request to create a deadline.
         """
 
         if not prompt or not prompt.strip():
@@ -63,25 +61,102 @@ class MemoryParser:
 
         prompt = prompt.strip()
 
-        # Order matters.
-        #
-        # A deadline can also contain words like "project",
-        # so check deadlines before generic project creation.
+        # -----------------------------------------------------
+        # READ operations MUST be checked first.
+        # -----------------------------------------------------
+        read_request = self._parse_read(prompt)
+        if read_request:
+            return read_request
 
+        # -----------------------------------------------------
+        # WRITE operations
+        # -----------------------------------------------------
+
+        # A deadline can contain words like "project", so check
+        # deadlines before generic project creation.
         deadline = self._parse_deadline(prompt)
-
         if deadline:
             return deadline
 
         task = self._parse_task(prompt)
-
         if task:
             return task
 
         project = self._parse_project(prompt)
-
         if project:
             return project
+
+        return None
+
+    # =========================================================
+    # READ / QUERY
+    # =========================================================
+
+    def _parse_read(self, prompt: str) -> Optional[MemoryRequest]:
+        """
+        Detect queries asking Nexus to retrieve stored memory.
+
+        Examples:
+            "What deadlines do I have?"
+            "Show my projects"
+            "What tasks do I have?"
+            "What do you remember about my work?"
+        """
+
+        lower = prompt.lower().strip()
+
+        # Combined memory queries
+        combined_patterns = (
+            r"\bwhat do you remember\b",
+            r"\bwhat do you know about my\b",
+            r"\bshow my current memory\b",
+            r"\bshow all my memory\b",
+            r"\bwhat(?:'s| is) in my memory\b",
+            r"\bwhat have you remembered\b",
+        )
+
+        if any(re.search(pattern, lower) for pattern in combined_patterns):
+            return MemoryRequest(action="get_memory_summary")
+
+        # Deadline queries
+        deadline_patterns = (
+            r"\bwhat deadlines?\b",
+            r"\bshow (?:me )?(?:my )?deadlines?\b",
+            r"\blist (?:my )?deadlines?\b",
+            r"\bdisplay (?:my )?deadlines?\b",
+            r"\bwhat(?:'s| is) my next deadline\b",
+            r"\bwhat deadlines? (?:are|is) coming\b",
+            r"\bupcoming deadlines?\b",
+        )
+
+        if any(re.search(pattern, lower) for pattern in deadline_patterns):
+            return MemoryRequest(action="get_deadlines")
+
+        # Project queries
+        project_patterns = (
+            r"\bwhat projects?\b",
+            r"\bshow (?:me )?(?:my )?projects?\b",
+            r"\blist (?:my )?projects?\b",
+            r"\bdisplay (?:my )?projects?\b",
+            r"\bwhat projects? am i working on\b",
+        )
+
+        if any(re.search(pattern, lower) for pattern in project_patterns):
+            return MemoryRequest(action="get_projects")
+
+        # Task queries
+        task_patterns = (
+            r"\bwhat tasks?\b",
+            r"\bshow (?:me )?(?:my )?tasks?\b",
+            r"\blist (?:my )?tasks?\b",
+            r"\bdisplay (?:my )?tasks?\b",
+            r"\bwhat do i need to do\b",
+            r"\bwhat should i work on\b",
+            r"\bwhat do i have to do\b",
+        )
+
+        if any(re.search(pattern, lower) for pattern in task_patterns):
+            return MemoryRequest(action="get_tasks")
 
         return None
 
@@ -90,10 +165,7 @@ class MemoryParser:
     # =========================================================
 
     def _looks_like_memory_request(self, prompt: str) -> bool:
-        """
-        Determine whether the user appears to be asking Nexus
-        to remember something.
-        """
+        """Determine whether the user appears to be storing information."""
 
         lower = prompt.lower()
 
@@ -110,23 +182,46 @@ class MemoryParser:
             "project",
         )
 
-        return any(
-            keyword in lower
-            for keyword in memory_keywords
+        return any(keyword in lower for keyword in memory_keywords)
+
+    def _looks_like_explicit_write(self, prompt: str) -> bool:
+        """
+        Require evidence that the user wants to STORE information.
+
+        This prevents ordinary questions containing words like
+        "deadline", "task", or "project" from becoming write operations.
+        """
+
+        lower = prompt.lower()
+
+        write_patterns = (
+            r"\bremember\b",
+            r"\bsave\b",
+            r"\bstore\b",
+            r"\bkeep in mind\b",
+            r"\bkeep track\b",
+            r"\bdon'?t forget\b",
+            r"\bdo not forget\b",
+            r"\bi have\b",
+            r"\bi've got\b",
+            r"\bi need to\b",
+            r"\bi have to\b",
+            r"\bi should\b",
+            r"\bi(?:'m| am) working on\b",
+            r"\bi(?:'ve| have) started\b",
+            r"\bi just started\b",
         )
+
+        return any(re.search(pattern, lower) for pattern in write_patterns)
 
     # =========================================================
     # Project
     # =========================================================
 
-    def _parse_project(
-        self,
-        prompt: str,
-    ) -> Optional[MemoryRequest]:
-
+    def _parse_project(self, prompt: str) -> Optional[MemoryRequest]:
         lower = prompt.lower()
 
-        if not self._looks_like_memory_request(prompt):
+        if not self._looks_like_explicit_write(prompt):
             return None
 
         project_patterns = [
@@ -136,20 +231,11 @@ class MemoryParser:
         ]
 
         for pattern in project_patterns:
-
-            match = re.search(
-                pattern,
-                lower,
-                re.IGNORECASE,
-            )
-
+            match = re.search(pattern, lower, re.IGNORECASE)
             if not match:
                 continue
 
-            name = match.group(1).strip()
-
-            name = self._clean_name(name)
-
+            name = self._clean_name(match.group(1))
             if not name:
                 return None
 
@@ -164,21 +250,21 @@ class MemoryParser:
     # Deadline
     # =========================================================
 
-    def _parse_deadline(
-        self,
-        prompt: str,
-    ) -> Optional[MemoryRequest]:
-
+    def _parse_deadline(self, prompt: str) -> Optional[MemoryRequest]:
         lower = prompt.lower()
 
         if "deadline" not in lower:
             return None
 
+        # A deadline must look like a storage statement.
+        if not self._looks_like_explicit_write(prompt):
+            return None
+
         date = self._extract_date(prompt)
 
         if not date:
-            # We know it's probably a deadline request,
-            # but we don't have a reliable date.
+            # We know the user is trying to store a deadline,
+            # but we do not have a reliable date.
             return MemoryRequest(
                 action="add_deadline",
                 title=self._extract_deadline_title(prompt),
@@ -198,11 +284,7 @@ class MemoryParser:
     # Task
     # =========================================================
 
-    def _parse_task(
-        self,
-        prompt: str,
-    ) -> Optional[MemoryRequest]:
-
+    def _parse_task(self, prompt: str) -> Optional[MemoryRequest]:
         lower = prompt.lower()
 
         task_keywords = (
@@ -214,10 +296,11 @@ class MemoryParser:
             "should do",
         )
 
-        if not any(
-            keyword in lower
-            for keyword in task_keywords
-        ):
+        if not any(keyword in lower for keyword in task_keywords):
+            return None
+
+        # Do not turn an ordinary question into a stored task.
+        if not self._looks_like_explicit_write(prompt):
             return None
 
         title = None
@@ -230,12 +313,7 @@ class MemoryParser:
         ]
 
         for pattern in patterns:
-
-            match = re.search(
-                pattern,
-                lower,
-                re.IGNORECASE,
-            )
+            match = re.search(pattern, lower, re.IGNORECASE)
 
             if match:
                 title = match.group(1).strip()
@@ -258,11 +336,7 @@ class MemoryParser:
     # Date Extraction
     # =========================================================
 
-    def _extract_date(
-        self,
-        prompt: str,
-    ) -> Optional[str]:
-
+    def _extract_date(self, prompt: str) -> Optional[str]:
         # YYYY-MM-DD
         match = re.search(
             r"\b(20\d{2})-(\d{1,2})-(\d{1,2})\b",
@@ -321,12 +395,10 @@ class MemoryParser:
         if match:
             day = int(match.group(1))
             month = months[match.group(2)]
-
             year = match.group(3)
 
             if not year:
-                # Don't guess the year here.
-                # The higher layer can resolve a missing year.
+                # Do not guess the year.
                 return None
 
             return (
@@ -363,11 +435,7 @@ class MemoryParser:
     # Project Name Extraction
     # =========================================================
 
-    def _extract_project_name(
-        self,
-        prompt: str,
-    ) -> Optional[str]:
-
+    def _extract_project_name(self, prompt: str) -> Optional[str]:
         patterns = [
             r"(?:for|on|of)\s+(?:the\s+)?"
             r"([A-Za-z0-9][A-Za-z0-9 _-]{1,50}?)"
@@ -379,17 +447,10 @@ class MemoryParser:
         ]
 
         for pattern in patterns:
-
-            match = re.search(
-                pattern,
-                prompt,
-                re.IGNORECASE,
-            )
+            match = re.search(pattern, prompt, re.IGNORECASE)
 
             if match:
-                return self._clean_name(
-                    match.group(1)
-                )
+                return self._clean_name(match.group(1))
 
         return None
 
@@ -397,11 +458,7 @@ class MemoryParser:
     # Deadline Title
     # =========================================================
 
-    def _extract_deadline_title(
-        self,
-        prompt: str,
-    ) -> str:
-
+    def _extract_deadline_title(self, prompt: str) -> str:
         project_name = self._extract_project_name(prompt)
 
         if project_name:
@@ -415,9 +472,7 @@ class MemoryParser:
         )
 
         if match:
-            return self._clean_name(
-                match.group(1)
-            )
+            return self._clean_name(match.group(1))
 
         return "Deadline"
 
@@ -427,10 +482,6 @@ class MemoryParser:
 
     @staticmethod
     def _clean_name(value: str) -> str:
-        """
-        Clean extracted names/titles.
-        """
-
         value = value.strip()
 
         value = re.sub(

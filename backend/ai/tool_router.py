@@ -1,5 +1,5 @@
 """
-tool_router.py
+ToolRouter.
 
 Preprocesses user prompts before they are sent to the LLM.
 
@@ -11,6 +11,7 @@ from pathlib import Path
 
 from memory.parser import MemoryParser
 from memory.router import MemoryRouter
+from memory.context import MemoryContext
 
 from api.email.service import EmailService
 from api.email.context import EmailContext
@@ -35,6 +36,13 @@ class ToolRouter:
         "summary",
     }
 
+    MEMORY_READ_ACTIONS = {
+        "get_deadlines",
+        "get_projects",
+        "get_tasks",
+        "get_memory_summary",
+    }
+
     def __init__(self):
 
         # ---------------------------------------------------------
@@ -53,6 +61,7 @@ class ToolRouter:
 
         self.memory_parser = MemoryParser()
         self.memory_router = MemoryRouter(memory_dir)
+        self.memory_context = MemoryContext()
 
         print(
             f"[Router] Memory storage: {memory_dir}"
@@ -134,6 +143,109 @@ class ToolRouter:
             memory_request.action,
         )
 
+        # ---------------------------------------------------------
+        # READ operation
+        # ---------------------------------------------------------
+
+        if memory_request.action in self.MEMORY_READ_ACTIONS:
+            return self._process_memory_read(
+                user_prompt,
+                memory_request,
+            )
+
+        # ---------------------------------------------------------
+        # WRITE operation
+        # ---------------------------------------------------------
+
+        return self._process_memory_write(
+            user_prompt,
+            memory_request,
+        )
+
+    def _process_memory_read(
+        self,
+        user_prompt,
+        memory_request,
+    ):
+        """
+        Retrieve actual stored memory and inject only that data
+        into the prompt sent to the LLM.
+        """
+
+        try:
+            result = self.memory_router.execute(
+                memory_request
+            )
+
+            context = self.memory_context.for_request(
+                memory_request.action,
+                result,
+            )
+
+        except Exception as exc:
+            print(
+                f"[Router] Memory READ failed: {exc}"
+            )
+
+            return f"""
+SYSTEM:
+
+You are Nexus AI.
+
+The user asked a question about persistent memory.
+
+The memory backend failed while retrieving the requested data.
+
+IMPORTANT:
+- Do not invent memory records.
+- Do not claim that you retrieved memory.
+- Do not answer the memory question from general model knowledge.
+- Tell the user that the memory lookup failed.
+
+User Request:
+{user_prompt}
+
+Respond naturally and briefly.
+""".strip()
+
+        print(
+            "[Router] Memory context prepared for:",
+            memory_request.action,
+        )
+
+        return f"""
+SYSTEM:
+
+You are Nexus AI.
+
+You are answering a question about the user's persistent memory.
+
+The MEMORY CONTEXT below is the authoritative source for this answer.
+
+STRICT MEMORY RULES:
+- Use only facts present in MEMORY CONTEXT.
+- Never invent deadlines, projects, tasks, dates, names, or other
+  personal memory records.
+- If the requested information is not present, say that it is not
+  currently stored.
+- Do not claim that something is stored unless MEMORY CONTEXT contains it.
+- Do not use your general knowledge as a substitute for missing memory.
+- You may phrase the factual information naturally, but you must not
+  add new facts.
+
+{context}
+
+User Request:
+{user_prompt}
+
+Respond naturally and concisely.
+""".strip()
+
+    def _process_memory_write(
+        self,
+        user_prompt,
+        memory_request,
+    ):
         result = self.memory_router.execute(
             memory_request
         )
@@ -161,7 +273,7 @@ User Request:
 {user_prompt}
 
 Respond naturally.
-"""
+""".strip()
 
         # ---------------------------------------------------------
         # Memory operation succeeded
@@ -190,7 +302,7 @@ User Request:
 {user_prompt}
 
 Respond naturally.
-"""
+""".strip()
 
     # =========================================================
     # Email Detection
@@ -273,7 +385,6 @@ Respond naturally.
         self,
         user_prompt: str,
     ) -> str:
-
         """
         Resolve the email naturally using EmailContext,
         then fetch its complete contents through EmailService.
@@ -311,7 +422,7 @@ User Request:
 {user_prompt}
 
 Respond naturally.
-"""
+""".strip()
 
         # ---------------------------------------------------------
         # Fetch complete email
@@ -346,7 +457,7 @@ User Request:
 {user_prompt}
 
 Respond naturally.
-"""
+""".strip()
 
         print(
             f"[Router] Fetching full email "
@@ -357,7 +468,6 @@ Respond naturally.
         # consuming the model context.
 
         if len(body) > 30000:
-
             body = (
                 body[:30000]
                 + "\n\n[Email body truncated.]"
@@ -407,7 +517,7 @@ User Request:
 {user_prompt}
 
 Respond naturally.
-"""
+""".strip()
 
     # =========================================================
     # Email Index Extraction
@@ -424,10 +534,7 @@ Respond naturally.
         )
 
         if match:
-
-            return int(
-                match.group(1)
-            )
+            return int(match.group(1))
 
         ordinal_map = {
             "first": 1,

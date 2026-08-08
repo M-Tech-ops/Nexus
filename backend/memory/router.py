@@ -19,12 +19,7 @@ from .service import MemoryService
 
 
 class MemoryRouter:
-
-    def __init__(
-        self,
-        storage_path: str | Path,
-    ) -> None:
-
+    def __init__(self, storage_path: str | Path) -> None:
         self.memory = MemoryService(storage_path)
 
         print("[MemoryRouter] Initialized.")
@@ -33,21 +28,39 @@ class MemoryRouter:
     # Structured Request Execution
     # =========================================================
 
-    def execute(
-        self,
-        request: MemoryRequest,
-    ):
+    def execute(self, request: MemoryRequest):
         """
         Execute a MemoryRequest.
 
-        Returns the created/updated memory object,
-        or None if the request cannot be executed.
+        Returns:
+            Created/updated memory object for WRITE operations,
+            or retrieved memory data for READ operations.
         """
 
         print(
             f"[MemoryRouter] Executing action: "
             f"{request.action}"
         )
+
+        # -----------------------------------------------------
+        # READ operations
+        # -----------------------------------------------------
+
+        if request.action == "get_deadlines":
+            return self.get_deadlines()
+
+        if request.action == "get_projects":
+            return self.get_projects()
+
+        if request.action == "get_tasks":
+            return self.get_tasks()
+
+        if request.action == "get_memory_summary":
+            return self.get_memory_summary()
+
+        # -----------------------------------------------------
+        # WRITE operations
+        # -----------------------------------------------------
 
         if request.action == "create_project":
             return self.create_project(
@@ -87,16 +100,13 @@ class MemoryRouter:
         name: str,
         description: str = "",
     ):
-
         existing = self.memory.find_project(name)
 
         if existing:
-
             print(
                 f"[MemoryRouter] Project already exists: "
                 f"{existing.name}"
             )
-
             return existing
 
         return self.memory.create_project(
@@ -105,7 +115,6 @@ class MemoryRouter:
         )
 
     def get_projects(self):
-
         return self.memory.get_projects(
             status="active"
         )
@@ -122,22 +131,13 @@ class MemoryRouter:
         project_id: Optional[str] = None,
         description: str = "",
     ):
-        """
-        Add a deadline.
-
-        If project_name is supplied, resolve it to an existing
-        project automatically.
-        """
-
         if project_id is None and project_name:
-
             project = self.memory.find_project(
                 project_name
             )
 
             if project:
                 project_id = project.id
-
             else:
                 print(
                     f"[MemoryRouter] Project not found: "
@@ -148,7 +148,6 @@ class MemoryRouter:
             print(
                 "[MemoryRouter] Deadline requires a date."
             )
-
             return None
 
         return self.memory.add_deadline(
@@ -159,7 +158,6 @@ class MemoryRouter:
         )
 
     def get_deadlines(self):
-
         return self.memory.get_deadlines(
             include_completed=False
         )
@@ -176,22 +174,13 @@ class MemoryRouter:
         description: str = "",
         due_date: Optional[str] = None,
     ):
-        """
-        Add a task.
-
-        If project_name is supplied, resolve it to an existing
-        project automatically.
-        """
-
         if project_id is None and project_name:
-
             project = self.memory.find_project(
                 project_name
             )
 
             if project:
                 project_id = project.id
-
             else:
                 print(
                     f"[MemoryRouter] Project not found: "
@@ -209,7 +198,6 @@ class MemoryRouter:
         self,
         project_id: Optional[str] = None,
     ):
-
         return self.memory.get_tasks(
             project_id=project_id,
             include_completed=False,
@@ -220,5 +208,4 @@ class MemoryRouter:
     # =========================================================
 
     def get_memory_summary(self):
-
         return self.memory.get_memory_summary()
