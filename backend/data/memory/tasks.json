@@ -1,18 +1,1 @@
-[
-    {
-        "id": "task_c6fd6e1a",
-        "title": "Finish email integration",
-        "project_id": "project_95e104b3",
-        "description": "Finish natural email selection and summaries",
-        "completed": false,
-        "due_date": "2026-08-15"
-    },
-    {
-        "id": "task_7b2d22e4",
-        "title": "Finish memory system",
-        "project_id": "project_95e104b3",
-        "description": "",
-        "completed": false,
-        "due_date": null
-    }
-]
+[]

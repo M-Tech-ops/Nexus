@@ -1,10 +1,12 @@
 """
 Memory Router.
 
-Converts structured memory requests into MemoryService operations.
+Executes structured memory requests produced by MemoryParser.
 
-This module does NOT call the LLM.
-It only performs memory operations requested by the AI/backend.
+This module does NOT:
+- Call the LLM.
+- Parse natural language.
+- Directly manipulate JSON.
 """
 
 from __future__ import annotations
@@ -12,6 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
+from .parser import MemoryRequest
 from .service import MemoryService
 
 
@@ -27,6 +30,55 @@ class MemoryRouter:
         print("[MemoryRouter] Initialized.")
 
     # =========================================================
+    # Structured Request Execution
+    # =========================================================
+
+    def execute(
+        self,
+        request: MemoryRequest,
+    ):
+        """
+        Execute a MemoryRequest.
+
+        Returns the created/updated memory object,
+        or None if the request cannot be executed.
+        """
+
+        print(
+            f"[MemoryRouter] Executing action: "
+            f"{request.action}"
+        )
+
+        if request.action == "create_project":
+            return self.create_project(
+                name=request.name or "Unnamed Project",
+                description=request.description,
+            )
+
+        if request.action == "add_deadline":
+            return self.add_deadline(
+                title=request.title or "Deadline",
+                date=request.date,
+                project_name=request.project_name,
+                description=request.description,
+            )
+
+        if request.action == "add_task":
+            return self.add_task(
+                title=request.title or "Task",
+                project_name=request.project_name,
+                description=request.description,
+                due_date=request.due_date,
+            )
+
+        print(
+            f"[MemoryRouter] Unknown action: "
+            f"{request.action}"
+        )
+
+        return None
+
+    # =========================================================
     # Projects
     # =========================================================
 
@@ -35,13 +87,11 @@ class MemoryRouter:
         name: str,
         description: str = "",
     ):
-        """
-        Create a new project.
-        """
 
         existing = self.memory.find_project(name)
 
         if existing:
+
             print(
                 f"[MemoryRouter] Project already exists: "
                 f"{existing.name}"
@@ -55,9 +105,6 @@ class MemoryRouter:
         )
 
     def get_projects(self):
-        """
-        Get active projects.
-        """
 
         return self.memory.get_projects(
             status="active"
@@ -70,13 +117,39 @@ class MemoryRouter:
     def add_deadline(
         self,
         title: str,
-        date: str,
+        date: Optional[str],
+        project_name: Optional[str] = None,
         project_id: Optional[str] = None,
         description: str = "",
     ):
         """
         Add a deadline.
+
+        If project_name is supplied, resolve it to an existing
+        project automatically.
         """
+
+        if project_id is None and project_name:
+
+            project = self.memory.find_project(
+                project_name
+            )
+
+            if project:
+                project_id = project.id
+
+            else:
+                print(
+                    f"[MemoryRouter] Project not found: "
+                    f"{project_name}"
+                )
+
+        if not date:
+            print(
+                "[MemoryRouter] Deadline requires a date."
+            )
+
+            return None
 
         return self.memory.add_deadline(
             title=title,
@@ -86,9 +159,6 @@ class MemoryRouter:
         )
 
     def get_deadlines(self):
-        """
-        Get incomplete deadlines.
-        """
 
         return self.memory.get_deadlines(
             include_completed=False
@@ -101,13 +171,32 @@ class MemoryRouter:
     def add_task(
         self,
         title: str,
+        project_name: Optional[str] = None,
         project_id: Optional[str] = None,
         description: str = "",
         due_date: Optional[str] = None,
     ):
         """
         Add a task.
+
+        If project_name is supplied, resolve it to an existing
+        project automatically.
         """
+
+        if project_id is None and project_name:
+
+            project = self.memory.find_project(
+                project_name
+            )
+
+            if project:
+                project_id = project.id
+
+            else:
+                print(
+                    f"[MemoryRouter] Project not found: "
+                    f"{project_name}"
+                )
 
         return self.memory.add_task(
             title=title,
@@ -120,9 +209,6 @@ class MemoryRouter:
         self,
         project_id: Optional[str] = None,
     ):
-        """
-        Get incomplete tasks.
-        """
 
         return self.memory.get_tasks(
             project_id=project_id,
@@ -134,8 +220,5 @@ class MemoryRouter:
     # =========================================================
 
     def get_memory_summary(self):
-        """
-        Return all currently active memory.
-        """
 
         return self.memory.get_memory_summary()
