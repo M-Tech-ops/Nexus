@@ -15,11 +15,13 @@ int main(int argc, char *argv[])
 
     // Backend -> frontend: server-driven state and streamed text.
     QObject::connect(&wsClient, &WebSocketClient::stateReceived,
-                      &island, &DynamicIslandWindow::handleServerState);
+                 &island, &DynamicIslandWindow::handleServerState);
     QObject::connect(&wsClient, &WebSocketClient::tokenReceived,
-                      &island, &DynamicIslandWindow::handleToken);
+                     &island, &DynamicIslandWindow::handleToken);
     QObject::connect(&wsClient, &WebSocketClient::responseComplete,
-                      &island, &DynamicIslandWindow::handleResponseComplete);
+                     &island, &DynamicIslandWindow::handleResponseComplete);
+    QObject::connect(&wsClient, &WebSocketClient::checklistReceived,
+                     &island, &DynamicIslandWindow::handleChecklist);
 
     // Frontend -> backend: user interaction requests a prompt.
     QObject::connect(&island, &DynamicIslandWindow::promptRequested,

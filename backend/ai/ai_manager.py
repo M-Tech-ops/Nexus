@@ -20,8 +20,8 @@ class AIManager:
         self,
         model_path: str | Path,
         n_ctx: int = 4096,
-        n_gpu_layers: int = 0,
-        verbose: bool = False,
+        n_gpu_layers: int = -1,
+        verbose: bool = True,
     ) -> None:
         """
         model_path: path to your Llama 3.2 3B Instruct GGUF file.

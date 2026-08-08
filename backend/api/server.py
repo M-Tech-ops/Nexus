@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -9,6 +10,8 @@ from fastapi.responses import JSONResponse
 
 from ai.ai_manager import AIManager
 from ai.tool_router import ToolRouter
+from tasks.service import TaskService
+
 # -------------------------------------------------------
 # Logging
 # -------------------------------------------------------
@@ -37,13 +40,10 @@ MODEL_PATH = "models/llama-3.2-3b-instruct.gguf"
 
 logger.info("Loading AI model...")
 
-ai = AIManager(
-    model_path=MODEL_PATH,
-    n_ctx=4096,
-    n_gpu_layers=0,
-)
+ai = AIManager(model_path=MODEL_PATH, n_ctx=4096, n_gpu_layers=0)
 
 router = ToolRouter()
+tasks = TaskService()
 
 logger.info("AI model loaded.")
 
@@ -59,6 +59,49 @@ async def root():
             "service": "Nexus AI Backend"
         }
     )
+
+# -------------------------------------------------------
+# Task checklist
+# -------------------------------------------------------
+
+# Matches "checklist for TASK-001", "checklist TASK-001", case-insensitive.
+# This is a placeholder trigger living in the transport layer because
+# ToolRouter's actual prompt-detection conventions aren't available yet —
+# see the note on process_prompt() below. It belongs there, not here.
+CHECKLIST_REQUEST = re.compile(r"checklist\s+(?:for\s+)?(TASK-\d+)", re.IGNORECASE)
+
+
+def _checklist_items(task) -> list[dict]:
+    return [
+        {
+            "requirement": item.requirement,
+            "status": item.status.value,
+            "source": item.source,
+            "missing_reason": item.missing_reason,
+        }
+        for item in task.checklist
+    ]
+
+
+@app.get("/tasks/{task_id}/checklist")
+async def get_task_checklist(task_id: str):
+    try:
+        task = tasks.get_task(task_id)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+
+    completion = task.completion
+
+    return JSONResponse({
+        "id": task.id,
+        "title": task.title,
+        "checklist": _checklist_items(task),
+        "completion": {
+            "complete": completion.complete,
+            "total": completion.total,
+            "percent": completion.percent,
+        },
+    })
 
 # -------------------------------------------------------
 # WebSocket
@@ -104,7 +147,53 @@ async def websocket_endpoint(websocket: WebSocket):
                 "value": "expanded"
             })
 
+            # -------------------------------------------------------
+            # AI task progress
+            # -------------------------------------------------------
+
+            progress_items = [
+                {
+                    "requirement": "Understand the request",
+                    "status": "complete",
+                    "source": "AI",
+                    "missing_reason": "",
+                },
+                {
+                    "requirement": "Plan the response",
+                    "status": "pending",
+                    "source": "AI",
+                    "missing_reason": "",
+                },
+                {
+                    "requirement": "Generate the response",
+                    "status": "pending",
+                    "source": "AI",
+                    "missing_reason": "",
+                },
+                {
+                    "requirement": "Finalize the response",
+                    "status": "pending",
+                    "source": "AI",
+                    "missing_reason": "",
+                },
+            ]
+
+            await websocket.send_json({
+                "type": "checklist",
+                "title": "AI Task Progress",
+                "items": progress_items,
+            })
+
             full_response = ""
+
+            progress_items[1]["status"] = "complete"
+            progress_items[2]["status"] = "in_progress"
+
+            await websocket.send_json({
+                "type": "checklist",
+                "title": "AI Task Progress",
+                "items": progress_items,
+            })
 
             #
             # Stream tokens
@@ -113,6 +202,15 @@ async def websocket_endpoint(websocket: WebSocket):
             print("\n========== FINAL PROMPT ==========")
             print(final_prompt)
             print("==================================\n")
+
+            progress_items[2]["status"] = "in_progress"
+
+            await websocket.send_json({
+                "type": "checklist",
+                "title": "AI Task Progress",
+                "items": progress_items,
+            })
+
             for token in ai.generate_stream(final_prompt):
 
                 full_response += token
@@ -130,6 +228,15 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.send_json({
                 "type": "response",
                 "text": full_response
+            })
+
+            progress_items[2]["status"] = "complete"
+            progress_items[3]["status"] = "complete"
+
+            await websocket.send_json({
+                "type": "checklist",
+                "title": "AI Task Progress",
+                "items": progress_items,
             })
 
             await websocket.send_json({

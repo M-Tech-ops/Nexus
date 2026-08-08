@@ -13,6 +13,10 @@ def main():
 
     try:
         print("Connecting to IMAP server...")
+        print(f"Server: {Config.IMAP_SERVER!r}")
+        print(f"Port:   {Config.IMAP_PORT!r}")
+        print(f"Type:   {type(Config.IMAP_PORT).__name__}")
+
         client.connect()
         print("✅ Connected")
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QHBoxLayout>
+#include <QJsonArray>
 #include <QLabel>
 #include <QPushButton>
 #include <QPropertyAnimation>
@@ -9,6 +10,7 @@
 #include <QTextCursor>
 #include <QTextEdit>
 #include <QTimer>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <QVector>
 #include <QWidget>
@@ -76,6 +78,11 @@ public slots:
     void handleToken(const QString &token);
     void handleResponseComplete(const QString &fullText);
 
+    // Renders a task's source checklist as its own bubble in the
+    // conversation. items follows the /tasks/{id}/checklist response shape:
+    // [{ requirement, status, source, missing_reason }, ...].
+    void handleChecklist(const QString &title, const QJsonArray &items);
+
 signals:
     void promptRequested(const QString &text);
 
@@ -105,6 +112,8 @@ private:
     // Conversation rendering.
     void appendUserMessage(const QString &text);
     void appendAssistantMessage(const QString &text);
+    void updateTaskProgress(const QString &title, const QJsonArray &items);
+    [[nodiscard]] QString taskProgressToHtmlFragment() const;
     void renderConversation();
     void createStreamingAssistantBubble();
     void flushStreamBuffer();
@@ -135,6 +144,13 @@ private:
     // Completed conversation history. Never modified while a response is
     // being streamed; the active response lives in m_streamBuffer instead.
     QVector<ChatMessage> m_messages;
+
+    // Current AI task progress. This is intentionally separate from the
+    // conversation history so repeated checklist updates replace the same
+    // progress card instead of creating multiple messages.
+    QString m_taskProgressTitle;
+    QJsonArray m_taskProgressItems;
+    bool m_hasTaskProgress = false;
 
     // Tokens waiting for the next UI flush.
     QString m_streamBuffer;

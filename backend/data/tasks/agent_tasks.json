@@ -1,0 +1,38 @@
+[
+  {
+    "id": "TASK-001",
+    "title": "Prepare ABC Proposal",
+    "checklist": [
+      {
+        "requirement": "Client identified",
+        "status": "complete",
+        "source": "email_182",
+        "missing_reason": null
+      },
+      {
+        "requirement": "Meeting date identified",
+        "status": "complete",
+        "source": "email_182",
+        "missing_reason": null
+      },
+      {
+        "requirement": "Proposal requested",
+        "status": "complete",
+        "source": "email_182",
+        "missing_reason": null
+      },
+      {
+        "requirement": "Revised proposal requirements",
+        "status": "uncertain",
+        "source": null,
+        "missing_reason": "Client referenced revised requirements but did not specify them in the email."
+      },
+      {
+        "requirement": "Recipient identified",
+        "status": "complete",
+        "source": "email_182",
+        "missing_reason": null
+      }
+    ]
+  }
+]
