@@ -40,7 +40,7 @@ MODEL_PATH = "models/llama-3.2-3b-instruct.gguf"
 
 logger.info("Loading AI model...")
 
-ai = AIManager(model_path=MODEL_PATH, n_ctx=4096, n_gpu_layers=0)
+ai = AIManager(model_path=MODEL_PATH)
 
 router = ToolRouter()
 tasks = TaskService()

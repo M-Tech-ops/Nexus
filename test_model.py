@@ -22,7 +22,7 @@ def main() -> None:
 
     print(f"Loading model from: {model_path}")
     start = time.time()
-    ai = AIManager(model_path=model_path, n_gpu_layers=0)  # bump n_gpu_layers if you have a GPU build
+    ai = AIManager(model_path=model_path)  # bump n_gpu_layers if you have a GPU build
     print(f"Model loaded in {time.time() - start:.1f}s\n")
 
     prompt = "In one sentence, what is a dynamic island UI?"
