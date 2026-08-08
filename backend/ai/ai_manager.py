@@ -37,7 +37,7 @@ class AIManager:
     def generate(
             self,
             prompt: str,
-            max_tokens: int = 256,
+            max_tokens: int = 2048,
             temperature: float = 0.7,
     ) -> str:
         result = self._llm.create_chat_completion(
@@ -53,7 +53,7 @@ class AIManager:
     def generate_stream(
             self,
             prompt: str,
-            max_tokens: int = 256,
+            max_tokens: int = 2048,
             temperature: float = 0.7,
     ) -> Iterator[str]:
         stream = self._llm.create_chat_completion(
