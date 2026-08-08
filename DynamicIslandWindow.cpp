@@ -271,6 +271,28 @@ DynamicIslandWindow::DynamicIslandWindow(QWidget *parent)
             font-size: 13px;
         }
     )");
+    // Detect when the user scrolls away from the bottom during streaming.
+    // Programmatic scrolling from scrollToBottom() is explicitly ignored.
+    connect(m_chatView->verticalScrollBar(), &QScrollBar::valueChanged,
+            this, [this](int value)
+    {
+        if (m_programmaticScroll)
+            return;
+
+        QScrollBar *bar = m_chatView->verticalScrollBar();
+        if (!bar)
+            return;
+
+        if (value >= bar->maximum())
+        {
+            m_userScrolledUp = false;
+        }
+        else if (m_isStreaming)
+        {
+            m_userScrolledUp = true;
+        }
+    });
+
     m_chatView->hide();
     m_layout->addWidget(m_chatView, 1);
 
@@ -524,6 +546,8 @@ void DynamicIslandWindow::sendCurrentPrompt()
 
     qDebug() << "Emitting prompt:" << prompt;
 
+    // A new turn starts at the newest message.
+    m_userScrolledUp = false;
     appendUserMessage(prompt);
     m_input->clear();
     m_input->setEnabled(false);
@@ -711,6 +735,9 @@ QString DynamicIslandWindow::markdownToHtmlFragment(const QString &markdown)
 
 void DynamicIslandWindow::renderConversation()
 {
+    // Preserve the user's viewport if they deliberately scrolled upward.
+    const bool shouldFollowBottom = !m_userScrolledUp;
+
     // A complete render is only used when the stable conversation changes
     // (for example after a user message, a completed assistant response,
     // or an updated AI task-progress state).
@@ -764,7 +791,10 @@ void DynamicIslandWindow::renderConversation()
 
     m_chatView->setUpdatesEnabled(true);
     m_chatView->viewport()->update();
-    scrollToBottom();
+
+    if (shouldFollowBottom)
+        scrollToBottom();
+
     updateExpandedHeight();
 }
 
@@ -822,7 +852,9 @@ void DynamicIslandWindow::createStreamingAssistantBubble()
     // The indicator represents AI activity, not the window's visual state.
     m_indicator->setState(NexusIndicator::State::Thinking);
 
-    scrollToBottom();
+    if (!m_userScrolledUp)
+        scrollToBottom();
+
     if (!m_heightUpdateTimer->isActive())
         m_heightUpdateTimer->start(kHeightUpdateMs);
 }
@@ -842,7 +874,10 @@ void DynamicIslandWindow::flushStreamBuffer()
     // previous messages, and no Markdown parsing during generation.
     m_streamCursor.insertText(chunk);
 
-    scrollToBottom();
+    // Keep following the AI only while the user remains at the bottom.
+    // Once they scroll upward, streamed tokens leave their viewport alone.
+    if (!m_userScrolledUp)
+        scrollToBottom();
 
     if (!m_heightUpdateTimer->isActive())
         m_heightUpdateTimer->start(kHeightUpdateMs);
@@ -877,7 +912,14 @@ void DynamicIslandWindow::finalizeStreamingResponse(const QString &fullText)
 void DynamicIslandWindow::scrollToBottom()
 {
     if (QScrollBar *bar = m_chatView->verticalScrollBar())
+    {
+        m_programmaticScroll = true;
         bar->setValue(bar->maximum());
+        m_programmaticScroll = false;
+
+        // Explicitly reaching the bottom resumes follow mode.
+        m_userScrolledUp = false;
+    }
 }
 
 void DynamicIslandWindow::updateExpandedHeight()

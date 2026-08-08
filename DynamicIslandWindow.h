@@ -163,6 +163,13 @@ private:
 
     bool m_isStreaming = false;
 
+    // True when the user has intentionally scrolled away from the bottom.
+    // While this is true, streamed tokens must not move the viewport.
+    bool m_userScrolledUp = false;
+
+    // Prevents our own setValue(maximum) calls from looking like user scrolls.
+    bool m_programmaticScroll = false;
+
     // Coalesces high-frequency backend tokens into inexpensive UI updates.
     QTimer *m_streamCoalesceTimer = nullptr;
 
