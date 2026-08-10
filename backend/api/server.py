@@ -7,10 +7,11 @@ from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
-
+from pathlib import Path
 from ai.ai_manager import AIManager
 from ai.tool_router import ToolRouter
 from tasks.service import TaskService
+from data.conversations.history import ConversationHistory
 
 # -------------------------------------------------------
 # Logging
@@ -43,6 +44,18 @@ logger.info("Loading AI model...")
 ai = AIManager(model_path=MODEL_PATH)
 
 router = ToolRouter()
+# -------------------------------------------------------
+# Conversation History
+# -------------------------------------------------------
+
+BACKEND_DIR = Path(__file__).resolve().parent
+
+conversation_history = ConversationHistory(
+    BACKEND_DIR / "data" / "conversations" / "history.json",
+    max_messages=10,
+)
+
+logger.info("Conversation history loaded.")
 tasks = TaskService()
 
 logger.info("AI model loaded.")
@@ -199,19 +212,38 @@ async def websocket_endpoint(websocket: WebSocket):
             # Stream tokens
             #
             final_prompt = router.process_prompt(prompt)
+
             print("\n========== FINAL PROMPT ==========")
             print(final_prompt)
             print("==================================\n")
 
-            progress_items[2]["status"] = "in_progress"
 
-            await websocket.send_json({
-                "type": "checklist",
-                "title": "AI Task Progress",
-                "items": progress_items,
-            })
+# -------------------------------------------------------
+# Conversation context
+# -------------------------------------------------------
 
-            for token in ai.generate_stream(final_prompt):
+            history = conversation_history.get_messages()
+
+            print(
+                f"[Conversation] Using {len(history)} previous messages."
+            )
+
+# Store the ORIGINAL user message.
+# Do NOT store final_prompt because it may contain
+# backend email/memory context.
+            conversation_history.add_user_message(prompt)
+
+            history = conversation_history.get_messages()[:-1]
+
+
+# -------------------------------------------------------
+# Generate response
+# -------------------------------------------------------
+
+            for token in ai.generate_stream(
+                final_prompt,
+                history=history,
+            ):
 
                 full_response += token
 
@@ -220,10 +252,10 @@ async def websocket_endpoint(websocket: WebSocket):
                     "text": token
                 })
 
-                #
-                # Give control back to FastAPI
-                #
                 await asyncio.sleep(0)
+            conversation_history.add_assistant_message(
+    full_response
+)
 
             await websocket.send_json({
                 "type": "response",
