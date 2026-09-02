@@ -17,7 +17,7 @@ from typing import Optional
 from .parser import MemoryRequest
 from .service import MemoryService
 
-
+import re
 class MemoryRouter:
     def __init__(self, storage_path: str | Path) -> None:
         self.memory = MemoryService(storage_path)
@@ -83,7 +83,12 @@ class MemoryRouter:
                 description=request.description,
                 due_date=request.due_date,
             )
-
+        
+        if request.action == "complete_deadline":
+            return self.complete_deadline(
+            title=request.title,
+            date=request.date,
+    )
         print(
             f"[MemoryRouter] Unknown action: "
             f"{request.action}"
@@ -156,7 +161,127 @@ class MemoryRouter:
             project_id=project_id,
             description=description,
         )
+    
 
+    def complete_deadline(
+    self,
+    title: Optional[str] = None,
+    date: Optional[str] = None,
+):
+        """
+        Mark an existing deadline as completed.
+
+        The deadline can be identified by title or date.
+        If there is exactly one incomplete deadline and
+        no identifying information was supplied, use that
+        deadline as the target.
+        """
+
+        deadlines = self.memory.get_deadlines(
+            include_completed=True
+        )
+
+        incomplete = [
+            deadline
+            for deadline in deadlines
+            if not deadline.completed
+        ]
+
+        if not incomplete:
+            print("[MemoryRouter] No incomplete deadlines found.")
+            return None
+
+        # ---------------------------------------------------------
+        # Try matching by title
+        # ---------------------------------------------------------
+
+        if title:
+            title_lower = title.strip().lower()
+
+            title_words = set(
+                re.findall(r"\b[a-z0-9]+\b", title_lower)
+            )
+
+            matches = []
+
+            for deadline in incomplete:
+                deadline_lower = deadline.title.lower()
+
+                deadline_words = set(
+                    re.findall(r"\b[a-z0-9]+\b", deadline_lower)
+                )
+
+                # Ignore generic words that don't help identify
+                # the actual deadline.
+                meaningful_words = title_words - {
+                    "my",
+                    "the",
+                    "this",
+                    "that",
+                    "deadline",
+                }
+
+        if meaningful_words and meaningful_words.issubset(deadline_words):
+            matches.append(deadline)
+
+            if len(matches) == 1:
+                deadline = matches[0]
+
+                print(
+                    f"[MemoryRouter] Completing deadline: "
+                    f"{deadline.title} ({deadline.id})"
+                )
+
+                return self.memory.complete_deadline(
+                    deadline.id
+                )
+
+        # ---------------------------------------------------------
+        # Try matching by date
+        # ---------------------------------------------------------
+
+        if date:
+            matches = [
+                deadline
+                for deadline in incomplete
+                if deadline.date == date
+            ]
+
+            if len(matches) == 1:
+                deadline = matches[0]
+
+                print(
+                    f"[MemoryRouter] Completing deadline: "
+                    f"{deadline.title} ({deadline.id})"
+                )
+
+                return self.memory.complete_deadline(
+                    deadline.id
+                )
+
+        # ---------------------------------------------------------
+        # If there is exactly one incomplete deadline,
+        # allow "mark this deadline complete"
+        # ---------------------------------------------------------
+
+        if not title and not date and len(incomplete) == 1:
+            deadline = incomplete[0]
+
+            print(
+                f"[MemoryRouter] Completing only incomplete deadline: "
+                f"{deadline.title} ({deadline.id})"
+            )
+
+            return self.memory.complete_deadline(
+                deadline.id
+            )
+
+        print(
+            "[MemoryRouter] Could not uniquely identify "
+            "the deadline to complete."
+        )
+
+        return None
     def get_deadlines(self):
         return self.memory.get_deadlines(
             include_completed=False

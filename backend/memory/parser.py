@@ -72,6 +72,12 @@ class MemoryParser:
         # WRITE operations
         # -----------------------------------------------------
 
+        # Deadline completion MUST be checked before normal
+        # deadline creation.
+        completed_deadline = self._parse_complete_deadline(prompt)
+        if completed_deadline:
+            return completed_deadline
+
         # A deadline can contain words like "project", so check
         # deadlines before generic project creation.
         deadline = self._parse_deadline(prompt)
@@ -249,7 +255,114 @@ class MemoryParser:
     # =========================================================
     # Deadline
     # =========================================================
+    def _parse_complete_deadline(
+        self,
+        prompt: str
+    ) -> Optional[MemoryRequest]:
+        """
+        Detect requests to mark an existing deadline as completed.
 
+        Examples:
+            "I completed this deadline"
+            "I finished my Physics deadline"
+            "mark this deadline as completed"
+            "mark the Physics deadline complete"
+            "I have completed the Physics deadline"
+
+        This must run before _parse_deadline() because completion
+        requests also contain the word "deadline".
+        """
+
+        lower = prompt.lower().strip()
+
+        # The prompt must clearly indicate completion.
+        completion_patterns = (
+            r"\bcompleted\b",
+            r"\bcomplete\b",
+            r"\bfinished\b",
+            r"\bfinish\b",
+            r"\bdone\b",
+            r"\bmark\b.*\bcomplete\b",
+            r"\bmark\b.*\bcompleted\b",
+        )
+
+        has_completion_intent = any(
+            re.search(pattern, lower)
+            for pattern in completion_patterns
+        )
+
+        if not has_completion_intent:
+            return None
+
+        # We only want this to operate on deadlines.
+        if "deadline" not in lower:
+            return None
+
+        # -----------------------------------------------------
+        # Try to extract a specific deadline title.
+        # -----------------------------------------------------
+
+        title = None
+
+        patterns = (
+            # "completed the Physics deadline"
+            r"(?:completed|finished|finish|complete)"
+            r"\s+(?:the\s+)?(.+?)\s+deadline\b",
+
+            # "mark the Physics deadline complete"
+            r"mark\s+(?:the\s+)?(.+?)\s+deadline"
+            r"\s+(?:as\s+)?(?:complete|completed)\b",
+
+            # "I have completed my Physics deadline"
+            r"(?:i\s+have|i've)\s+(?:completed|finished)"
+            r"\s+(?:my\s+|the\s+)?(.+?)\s+deadline\b",
+        )
+
+        for pattern in patterns:
+            match = re.search(
+                pattern,
+                lower,
+                re.IGNORECASE,
+            )
+
+            if match:
+                extracted = match.group(1).strip()
+
+                # Avoid returning generic words as the title.
+                if extracted and extracted not in {
+                    "this",
+                    "that",
+                    "my",
+                    "the",
+                }:
+                    title = self._clean_name(extracted)
+                    break
+
+        # -----------------------------------------------------
+        # Extract date if the user mentioned one.
+        # -----------------------------------------------------
+
+        date = self._extract_date(prompt)
+
+        # -----------------------------------------------------
+        # If we have neither a title nor a date, this is still
+        # a valid completion request.
+        #
+        # The router can resolve it if there is only one
+        # incomplete deadline.
+        # -----------------------------------------------------
+
+        print(
+            "[Parser] Detected complete_deadline:",
+            "title =", title,
+            "date =", date,
+        )
+
+        return MemoryRequest(
+            action="complete_deadline",
+            title=title,
+            date=date,
+        )
     def _parse_deadline(self, prompt: str) -> Optional[MemoryRequest]:
         lower = prompt.lower()
 
@@ -337,6 +450,7 @@ class MemoryParser:
     # =========================================================
 
     def _extract_date(self, prompt: str) -> Optional[str]:
+        print("[Parser for memory is running]")
         # YYYY-MM-DD
         match = re.search(
             r"\b(20\d{2})-(\d{1,2})-(\d{1,2})\b",
@@ -353,14 +467,16 @@ class MemoryParser:
             )
 
         # DD/MM/YYYY
+        
         match = re.search(
             r"\b(\d{1,2})/(\d{1,2})/(20\d{2})\b",
             prompt,
         )
 
         if match:
+            
             day, month, year = match.groups()
-
+            print("[Parser] DD-MM-YYYY matched:", day, month, year)
             return (
                 f"{int(year):04d}-"
                 f"{int(month):02d}-"
