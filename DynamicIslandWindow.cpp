@@ -581,146 +581,6 @@ void DynamicIslandWindow::appendAssistantMessage(const QString &text)
     renderConversation();
 }
 
-void DynamicIslandWindow::updateTaskProgress(const QString &title,
-                                             const QJsonArray &items)
-{
-    m_taskProgressTitle = title;
-    m_taskProgressItems = items;
-    m_hasTaskProgress = true;
-
-    // The progress card is part of the stable UI, so simply re-rendering
-    // keeps it synchronized with the latest backend checklist state.
-    renderConversation();
-
-    if (!m_heightUpdateTimer->isActive())
-        m_heightUpdateTimer->start(kHeightUpdateMs);
-}
-
-QString DynamicIslandWindow::taskProgressToHtmlFragment() const
-{
-    int total = 0;
-    int complete = 0;
-
-    for (const QJsonValue &value : m_taskProgressItems)
-    {
-        const QJsonObject item = value.toObject();
-        const QString status =
-            item.value(QStringLiteral("status")).toString();
-
-        if (status == QLatin1String("not_applicable"))
-            continue;
-
-        ++total;
-
-        if (status == QLatin1String("complete"))
-            ++complete;
-    }
-
-    const int percent =
-        total > 0
-            ? qRound((complete / static_cast<qreal>(total)) * 100.0)
-            : 0;
-
-    QString html;
-
-    // Header
-    html += QStringLiteral(
-        "<table width='100%' cellspacing='0' cellpadding='0'>"
-        "<tr>"
-        "<td>"
-        "<span style='color:#ffd479;font-size:12px;font-weight:600;'>"
-        "AI TASK PROGRESS"
-        "</span>"
-        "</td>"
-        "<td align='right'>"
-        "<span style='color:white;font-size:12px;'>"
-        "%1 / %2"
-        "</span>"
-        "</td>"
-        "</tr>"
-        "</table>"
-    ).arg(complete).arg(total);
-
-    // Progress bar background + filled portion.
-    html += QStringLiteral(
-        "<table width='100%' cellspacing='0' cellpadding='0' "
-        "style='margin-top:8px;'>"
-        "<tr>"
-        "<td bgcolor='#35353b' height='6'>"
-        "<table width='%1%' cellspacing='0' cellpadding='0'>"
-        "<tr><td bgcolor='#ffd479' height='6'></td></tr>"
-        "</table>"
-        "</td>"
-        "</tr>"
-        "</table>"
-    ).arg(percent);
-
-    // Percentage
-    html += QStringLiteral(
-        "<div style='margin-top:6px;"
-        "color:#a8a8ad;"
-        "font-size:11px;'>"
-        "%1% complete"
-        "</div>"
-    ).arg(percent);
-
-    // Task title, if the backend supplied one.
-    if (!m_taskProgressTitle.isEmpty())
-    {
-        html += QStringLiteral(
-            "<div style='margin-top:8px;"
-            "color:#d8d8dc;"
-            "font-size:11px;'>"
-            "%1"
-            "</div>"
-        ).arg(m_taskProgressTitle.toHtmlEscaped());
-    }
-
-    // Individual task steps.
-    html += QStringLiteral(
-        "<div style='margin-top:8px;'>"
-    );
-
-    for (const QJsonValue &value : m_taskProgressItems)
-    {
-        const QJsonObject item = value.toObject();
-
-        const QString status =
-            item.value(QStringLiteral("status")).toString();
-
-        if (status == QLatin1String("not_applicable"))
-            continue;
-
-        const QString requirement =
-            item.value(QStringLiteral("requirement"))
-                .toString()
-                .toHtmlEscaped();
-
-        const bool isComplete =
-            status == QLatin1String("complete");
-
-        const QString glyph = isComplete
-            ? QStringLiteral("&#10003;")
-            : QStringLiteral("&#9675;");
-
-        const QString glyphColor = isComplete
-            ? QStringLiteral("#55D68A")
-            : QStringLiteral("#77777f");
-
-        html += QStringLiteral(
-            "<div style='margin-top:4px;'>"
-            "<span style='color:%1;font-size:12px;'>%2</span>"
-            "&nbsp;"
-            "<span style='color:#d8d8dc;font-size:11px;'>%3</span>"
-            "</div>"
-        ).arg(glyphColor, glyph, requirement);
-    }
-
-    html += QStringLiteral("</div>");
-
-    return html;
-}
-
 QString DynamicIslandWindow::markdownToHtmlFragment(const QString &markdown)
 {
     QTextDocument doc;
@@ -748,19 +608,6 @@ void DynamicIslandWindow::renderConversation()
     QTextDocument *doc = m_chatView->document();
     doc->clear();
     cursor = QTextCursor(doc);
-
-    // Task progress is UI state, not conversation history. Always render
-    // the latest progress card before the conversation messages.
-    if (m_hasTaskProgress)
-    {
-        cursor = insertMessageBubble(
-            cursor,
-            QStringLiteral("Nexus"),
-            QStringLiteral("#ffd479"),
-            QColor(255, 255, 255, 13).name(QColor::HexArgb),
-            false,
-            taskProgressToHtmlFragment());
-    }
 
     for (int i = 0; i < m_messages.size(); ++i)
     {
@@ -1003,12 +850,6 @@ void DynamicIslandWindow::handleToken(const QString &token)
 void DynamicIslandWindow::handleResponseComplete(const QString &fullText)
 {
     finalizeStreamingResponse(fullText);
-}
-
-void DynamicIslandWindow::handleChecklist(const QString &title,
-                                          const QJsonArray &items)
-{
-    updateTaskProgress(title, items);
 }
 
 #ifdef Q_OS_WIN

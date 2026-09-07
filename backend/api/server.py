@@ -189,22 +189,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 },
             ]
 
-            await websocket.send_json({
-                "type": "checklist",
-                "title": "AI Task Progress",
-                "items": progress_items,
-            })
-
             full_response = ""
-
-            progress_items[1]["status"] = "complete"
-            progress_items[2]["status"] = "in_progress"
-
-            await websocket.send_json({
-                "type": "checklist",
-                "title": "AI Task Progress",
-                "items": progress_items,
-            })
 
             #
             # Stream tokens
@@ -249,15 +234,6 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.send_json({
                 "type": "response",
                 "text": full_response
-            })
-
-            progress_items[2]["status"] = "complete"
-            progress_items[3]["status"] = "complete"
-
-            await websocket.send_json({
-                "type": "checklist",
-                "title": "AI Task Progress",
-                "items": progress_items,
             })
 
             await websocket.send_json({
