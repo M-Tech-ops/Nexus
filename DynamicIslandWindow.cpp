@@ -699,13 +699,7 @@ void DynamicIslandWindow::finalizeStreamingResponse(const QString &fullText)
     m_input->setFocus();
     m_statusLabel->setText(QStringLiteral("Nexus AI"));
 
-    // Orange means the response has just completed while the panel is open.
-    // If the user collapsed the island during generation, return to the
-    // normal green idle indicator instead.
-    if (m_state == State::Idle || m_state == State::Compact)
-        m_indicator->setState(NexusIndicator::State::Idle);
-    else
-        m_indicator->setState(NexusIndicator::State::Active);
+    m_indicator->setState(NexusIndicator::State::Idle);
 }
 
 void DynamicIslandWindow::scrollToBottom()
