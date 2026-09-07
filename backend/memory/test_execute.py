@@ -1,14 +1,10 @@
-from pathlib import Path
-
+from core.config import Config
 from memory.parser import MemoryParser
 from memory.router import MemoryRouter
 
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-MEMORY_DIR = BASE_DIR / "data" / "memory"
-
+Config.ensure_storage_directories()
 parser = MemoryParser()
-router = MemoryRouter(MEMORY_DIR)
+router = MemoryRouter(Config.MEMORY_DIR)
 
 
 tests = [

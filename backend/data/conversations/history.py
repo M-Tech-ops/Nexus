@@ -19,18 +19,20 @@ Conversation context:
 
 import json
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Optional
+
+from core.config import Config
 
 
 class ConversationHistory:
 
     def __init__(
         self,
-        storage_path: str | Path,
+        storage_path: Optional[str | Path] = None,
         max_messages: int = 10,
     ) -> None:
 
-        self.storage_path = Path(storage_path)
+        self.storage_path = Path(storage_path) if storage_path is not None else Config.HISTORY_FILE
         self.max_messages = max_messages
 
         self.storage_path.parent.mkdir(
@@ -48,7 +50,7 @@ class ConversationHistory:
 
     def _load(self) -> None:
 
-        if not self.storage_path.exists():
+        if not self.storage_path.exists() or self.storage_path.stat().st_size == 0:
             self.messages = []
             self._save()
             return

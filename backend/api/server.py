@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from pathlib import Path
+from core.config import Config
 from ai.ai_manager import AIManager
 from ai.tool_router import ToolRouter
 from tasks.service import TaskService
@@ -34,24 +35,32 @@ app = FastAPI(
 )
 
 # -------------------------------------------------------
+# Storage & Directories
+# -------------------------------------------------------
+
+Config.ensure_storage_directories()
+
+logger.info(f"Persistent storage (tasks, memory): {Config.NEXUS_DATA_DIR}")
+logger.info(f"Conversation history (temp): {Config.HISTORY_FILE}")
+
+# -------------------------------------------------------
 # Load AI once
 # -------------------------------------------------------
 
-MODEL_PATH = "models/llama-3.2-3b-instruct.gguf"
+MODEL_PATH = Config.MODEL_PATH
 
 logger.info("Loading AI model...")
 
 ai = AIManager(model_path=MODEL_PATH)
 
 router = ToolRouter()
-# -------------------------------------------------------
-# Conversation History
-# -------------------------------------------------------
 
-BACKEND_DIR = Path(__file__).resolve().parent
+# -------------------------------------------------------
+# Conversation History & Tasks
+# -------------------------------------------------------
 
 conversation_history = ConversationHistory(
-    BACKEND_DIR / "data" / "conversations" / "history.json",
+    Config.HISTORY_FILE,
     max_messages=10,
 )
 

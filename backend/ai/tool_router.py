@@ -13,6 +13,7 @@ from memory.parser import MemoryParser
 from memory.router import MemoryRouter
 from memory.context import MemoryContext
 
+from core.config import Config
 from api.email.service import EmailService
 from api.email.context import EmailContext
 
@@ -56,8 +57,7 @@ class ToolRouter:
         # Memory
         # ---------------------------------------------------------
 
-        backend_dir = Path(__file__).resolve().parent.parent
-        memory_dir = backend_dir / "data" / "memory"
+        memory_dir = Config.MEMORY_DIR
 
         self.memory_parser = MemoryParser()
         self.memory_router = MemoryRouter(memory_dir)

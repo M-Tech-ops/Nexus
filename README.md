@@ -85,7 +85,7 @@ def __init__(
 2. Point `CMAKE_PREFIX_PATH` at your Qt installation's MSVC lib directory:
 
    ```batch
-   set CMAKE_PREFIX_PATH=C:\Qt\6.7.2\msvc2019_64
+   set CMAKE_PREFIX_PATH=C:\Qt\6.11.1\msvc2022_64
    ```
 
 3. Configure and build:
