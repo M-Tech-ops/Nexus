@@ -76,7 +76,7 @@ class ToolRouter:
 
         logger.info("================================================")
         logger.info("TOOL ROUTER IS RUNNING")
-        logger.info("Prompt:", prompt)
+        logger.info(f"Prompt: {prompt}")
         logger.info("================================================")
 
         # ---------------------------------------------------------
