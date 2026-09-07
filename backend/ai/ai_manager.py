@@ -8,7 +8,7 @@ and run inference with conversation history.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterator, List, Dict
+from typing import Iterator
 
 from llama_cpp import Llama
 
@@ -44,7 +44,7 @@ class AIManager:
     def generate(
             self,
             prompt: str,
-            history: List[Dict[str, str]] | None = None,
+            history: list[dict[str, str]] | None = None,
             max_tokens: int = 2048,
             temperature: float = 0.7,
     ) -> str:
@@ -69,7 +69,7 @@ class AIManager:
     def generate_stream(
             self,
             prompt: str,
-            history: List[Dict[str, str]] | None = None,
+            history: list[dict[str, str]] | None = None,
             max_tokens: int = 2048,
             temperature: float = 0.7,
     ) -> Iterator[str]:
@@ -100,8 +100,8 @@ class AIManager:
     @staticmethod
     def _build_messages(
             prompt: str,
-            history: List[Dict[str, str]] | None,
-    ) -> List[Dict[str, str]]:
+            history: list[dict[str, str]] | None,
+    ) -> list[dict[str, str]]:
 
         messages = []
 

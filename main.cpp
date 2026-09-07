@@ -2,7 +2,7 @@
 #include <QDebug>
 #include <QUrl>
 
-#include "DynamicislandWindow.h"
+#include "DynamicIslandWindow.h"
 #include "backend/WebSocketClient.h"
 
 int main(int argc, char *argv[])

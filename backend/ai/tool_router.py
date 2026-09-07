@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger('NexusAI')
 """
 ToolRouter.
 
@@ -7,7 +9,6 @@ This module NEVER calls the AI.
 """
 
 import re
-from pathlib import Path
 
 from memory.parser import MemoryParser
 from memory.router import MemoryRouter
@@ -63,7 +64,7 @@ class ToolRouter:
         self.memory_router = MemoryRouter(memory_dir)
         self.memory_context = MemoryContext()
 
-        print(
+        logger.info(
             f"[Router] Memory storage: {memory_dir}"
         )
 
@@ -73,10 +74,10 @@ class ToolRouter:
 
     def process_prompt(self, prompt: str) -> str:
 
-        print("================================================")
-        print("TOOL ROUTER IS RUNNING")
-        print("Prompt:", prompt)
-        print("================================================")
+        logger.info("================================================")
+        logger.info("TOOL ROUTER IS RUNNING")
+        logger.info("Prompt:", prompt)
+        logger.info("================================================")
 
         # ---------------------------------------------------------
         # EMAIL SUMMARY
@@ -84,7 +85,7 @@ class ToolRouter:
 
         if self._is_email_summary_request(prompt):
 
-            print(
+            logger.info(
                 "[Router] Email summary tool selected."
             )
 
@@ -96,7 +97,7 @@ class ToolRouter:
 
         if self._needs_email(prompt):
 
-            print(
+            logger.info(
                 "[Router] Email listing tool selected."
             )
 
@@ -110,7 +111,7 @@ class ToolRouter:
 
         if memory_request:
 
-            print(
+            logger.info(
                 "[Router] Memory tool selected:",
                 memory_request.action,
             )
@@ -124,7 +125,7 @@ class ToolRouter:
         # NORMAL PROMPT
         # ---------------------------------------------------------
 
-        print("[Router] No tool selected.")
+        logger.info("[Router] No tool selected.")
 
         return prompt
 
@@ -138,7 +139,7 @@ class ToolRouter:
         memory_request,
     ):
 
-        print(
+        logger.info(
             "[Router] Executing memory action:",
             memory_request.action,
         )
@@ -183,7 +184,7 @@ class ToolRouter:
             )
 
         except Exception as exc:
-            print(
+            logger.info(
                 f"[Router] Memory READ failed: {exc}"
             )
 
@@ -208,7 +209,7 @@ User Request:
 Respond naturally and briefly.
 """.strip()
 
-        print(
+        logger.info(
             "[Router] Memory context prepared for:",
             memory_request.action,
         )
@@ -368,7 +369,7 @@ Respond naturally.
 
         self.email_context.update(emails)
 
-        print(
+        logger.info(
             f"[Router] {len(emails)} unread emails found."
         )
 
@@ -438,7 +439,7 @@ Respond naturally.
 
         except ValueError as exc:
 
-            print(
+            logger.info(
                 f"[Router] {exc}"
             )
 
@@ -459,7 +460,7 @@ User Request:
 Respond naturally.
 """.strip()
 
-        print(
+        logger.info(
             f"[Router] Fetching full email "
             f"#{index} (UID {email.uid})"
         )
@@ -608,3 +609,4 @@ Respond naturally.
 """
 
         return prompt
+
