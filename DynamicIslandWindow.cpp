@@ -577,7 +577,6 @@ void DynamicIslandWindow::appendAssistantMessage(const QString &text)
     m_streamBuffer.clear();
     m_activeStreamText.clear();
     m_isStreaming = false;
-    m_streamCursor = QTextCursor();
     renderConversation();
 }
 
@@ -597,6 +596,9 @@ void DynamicIslandWindow::renderConversation()
 {
     // Preserve the user's viewport if they deliberately scrolled upward.
     const bool shouldFollowBottom = !m_userScrolledUp;
+    int scrollValue = 0;
+    if (QScrollBar *bar = m_chatView->verticalScrollBar())
+        scrollValue = bar->value();
 
     // A complete render is only used when the stable conversation changes
     // (for example after a user message, a completed assistant response,
@@ -636,76 +638,30 @@ void DynamicIslandWindow::renderConversation()
         }
     }
 
+    if (m_isStreaming && !m_activeStreamText.isEmpty())
+    {
+        cursor = insertMessageBubble(
+            cursor,
+            QStringLiteral("Nexus"),
+            QStringLiteral("#b9f6c8"),
+            QColor(255, 255, 255, 13).name(QColor::HexArgb),
+            false,
+            markdownToHtmlFragment(m_activeStreamText));
+    }
+
     m_chatView->setUpdatesEnabled(true);
     m_chatView->viewport()->update();
 
     if (shouldFollowBottom)
         scrollToBottom();
+    else if (QScrollBar *bar = m_chatView->verticalScrollBar())
+    {
+        m_programmaticScroll = true;
+        bar->setValue(scrollValue);
+        m_programmaticScroll = false;
+    }
 
     updateExpandedHeight();
-}
-
-void DynamicIslandWindow::createStreamingAssistantBubble()
-{
-    if (m_isStreaming)
-        return;
-
-    // The stable conversation is already rendered. Append exactly one
-    // assistant table and keep a cursor inside its body forever during this
-    // response.
-    QTextCursor cursor(m_chatView->document());
-    cursor.movePosition(QTextCursor::End);
-
-    QTextTableFormat tableFormat;
-    tableFormat.setBorder(0);
-    tableFormat.setCellPadding(0);
-    tableFormat.setCellSpacing(0);
-    tableFormat.setWidth(QTextLength(QTextLength::PercentageLength, 100));
-    tableFormat.setBottomMargin(8);
-    tableFormat.setRightMargin(32);
-
-    QTextTable *table = cursor.insertTable(1, 1, tableFormat);
-    QTextTableCell cell = table->cellAt(0, 0);
-
-    QTextTableCellFormat cellFormat;
-    cellFormat.setBackground(QColor(255, 255, 255, 13));
-    cellFormat.setTopPadding(8);
-    cellFormat.setBottomPadding(8);
-    cellFormat.setLeftPadding(12);
-    cellFormat.setRightPadding(12);
-    cell.setFormat(cellFormat);
-
-    m_streamCursor = cell.firstCursorPosition();
-
-    QTextCharFormat labelFormat;
-    labelFormat.setForeground(QColor(QStringLiteral("#b9f6c8")));
-    labelFormat.setFontWeight(QFont::DemiBold);
-    labelFormat.setFontPointSize(9);
-    m_streamCursor.insertText(QStringLiteral("Nexus"), labelFormat);
-    m_streamCursor.insertBlock();
-
-    // Keep body text visually consistent with the QTextBrowser's default
-    // font while preserving the cursor's ability to insert plain streamed
-    // text efficiently.
-    QTextCharFormat bodyFormat;
-    bodyFormat.setForeground(Qt::white);
-    QFont f = bodyFormat.font();
-    f.setPixelSize(13);
-    bodyFormat.setFont(f);
-    m_streamCursor.setCharFormat(bodyFormat);
-
-    m_streamBuffer.clear();
-    m_activeStreamText.clear();
-    m_isStreaming = true;
-
-    // The indicator represents AI activity, not the window's visual state.
-    m_indicator->setState(NexusIndicator::State::Thinking);
-
-    if (!m_userScrolledUp)
-        scrollToBottom();
-
-    if (!m_heightUpdateTimer->isActive())
-        m_heightUpdateTimer->start(kHeightUpdateMs);
 }
 
 void DynamicIslandWindow::flushStreamBuffer()
@@ -713,20 +669,14 @@ void DynamicIslandWindow::flushStreamBuffer()
     if (m_streamBuffer.isEmpty())
         return;
 
-    if (!m_isStreaming)
-        createStreamingAssistantBubble();
-
+    m_isStreaming = true;
     const QString chunk = std::exchange(m_streamBuffer, QString());
     m_activeStreamText += chunk;
 
-    // Insert directly into the active body. No setHtml(), no rebuilding of
-    // previous messages, and no Markdown parsing during generation.
-    m_streamCursor.insertText(chunk);
+    renderConversation();
 
-    // Keep following the AI only while the user remains at the bottom.
-    // Once they scroll upward, streamed tokens leave their viewport alone.
-    if (!m_userScrolledUp)
-        scrollToBottom();
+    // The indicator represents AI activity
+    m_indicator->setState(NexusIndicator::State::Thinking);
 
     if (!m_heightUpdateTimer->isActive())
         m_heightUpdateTimer->start(kHeightUpdateMs);
@@ -826,7 +776,6 @@ void DynamicIslandWindow::handleServerState(const QString &state)
         m_streamBuffer.clear();
         m_activeStreamText.clear();
         m_isStreaming = false;
-        m_streamCursor = QTextCursor();
         m_input->setEnabled(false);
         setState(State::Expanded);
         // The assistant bubble is created lazily on the first token
@@ -838,9 +787,6 @@ void DynamicIslandWindow::handleServerState(const QString &state)
 
 void DynamicIslandWindow::handleToken(const QString &token)
 {
-    if (!m_isStreaming)
-        createStreamingAssistantBubble();
-
     m_streamBuffer += token;
 
     if (!m_streamCoalesceTimer->isActive())

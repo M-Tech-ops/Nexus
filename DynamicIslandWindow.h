@@ -109,9 +109,9 @@ private:
     // Conversation rendering.
     void appendUserMessage(const QString &text);
     void appendAssistantMessage(const QString &text);
-
     void renderConversation();
-    void createStreamingAssistantBubble();
+
+
     void flushStreamBuffer();
     void finalizeStreamingResponse(const QString &fullText);
     void scrollToBottom();
@@ -148,10 +148,6 @@ private:
 
     // All text inserted into the currently streaming assistant bubble.
     QString m_activeStreamText;
-
-    // Cursor remains inside the body of the active assistant bubble.
-    QTextCursor m_streamCursor;
-
     bool m_isStreaming = false;
 
     // True when the user has intentionally scrolled away from the bottom.
