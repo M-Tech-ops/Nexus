@@ -20,7 +20,7 @@ class AIManager:
             model_path: str | Path,
             n_ctx: int = 16384,
             n_gpu_layers: int = -1,
-            verbose: bool = False,
+            verbose: bool = True,
     ) -> None:
 
         model_path = Path(model_path)

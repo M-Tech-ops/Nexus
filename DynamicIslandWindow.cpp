@@ -842,7 +842,6 @@ void DynamicIslandWindow::createStreamingAssistantBubble()
     // text efficiently.
     QTextCharFormat bodyFormat;
     bodyFormat.setForeground(Qt::white);
-    bodyFormat.setFontPointSize(13);
     m_streamCursor.setCharFormat(bodyFormat);
 
     m_streamBuffer.clear();
