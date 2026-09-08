@@ -1,12 +1,8 @@
-from pathlib import Path
-
+from core.config import Config
 from memory.router import MemoryRouter
 
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-MEMORY_DIR = BASE_DIR / "data" / "memory"
-
-router = MemoryRouter(MEMORY_DIR)
+Config.ensure_storage_directories()
+router = MemoryRouter(Config.MEMORY_DIR)
 
 
 print("\n========== CREATE PROJECT ==========")

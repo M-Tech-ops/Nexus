@@ -577,148 +577,7 @@ void DynamicIslandWindow::appendAssistantMessage(const QString &text)
     m_streamBuffer.clear();
     m_activeStreamText.clear();
     m_isStreaming = false;
-    m_streamCursor = QTextCursor();
     renderConversation();
-}
-
-void DynamicIslandWindow::updateTaskProgress(const QString &title,
-                                             const QJsonArray &items)
-{
-    m_taskProgressTitle = title;
-    m_taskProgressItems = items;
-    m_hasTaskProgress = true;
-
-    // The progress card is part of the stable UI, so simply re-rendering
-    // keeps it synchronized with the latest backend checklist state.
-    renderConversation();
-
-    if (!m_heightUpdateTimer->isActive())
-        m_heightUpdateTimer->start(kHeightUpdateMs);
-}
-
-QString DynamicIslandWindow::taskProgressToHtmlFragment() const
-{
-    int total = 0;
-    int complete = 0;
-
-    for (const QJsonValue &value : m_taskProgressItems)
-    {
-        const QJsonObject item = value.toObject();
-        const QString status =
-            item.value(QStringLiteral("status")).toString();
-
-        if (status == QLatin1String("not_applicable"))
-            continue;
-
-        ++total;
-
-        if (status == QLatin1String("complete"))
-            ++complete;
-    }
-
-    const int percent =
-        total > 0
-            ? qRound((complete / static_cast<qreal>(total)) * 100.0)
-            : 0;
-
-    QString html;
-
-    // Header
-    html += QStringLiteral(
-        "<table width='100%' cellspacing='0' cellpadding='0'>"
-        "<tr>"
-        "<td>"
-        "<span style='color:#ffd479;font-size:12px;font-weight:600;'>"
-        "AI TASK PROGRESS"
-        "</span>"
-        "</td>"
-        "<td align='right'>"
-        "<span style='color:white;font-size:12px;'>"
-        "%1 / %2"
-        "</span>"
-        "</td>"
-        "</tr>"
-        "</table>"
-    ).arg(complete).arg(total);
-
-    // Progress bar background + filled portion.
-    html += QStringLiteral(
-        "<table width='100%' cellspacing='0' cellpadding='0' "
-        "style='margin-top:8px;'>"
-        "<tr>"
-        "<td bgcolor='#35353b' height='6'>"
-        "<table width='%1%' cellspacing='0' cellpadding='0'>"
-        "<tr><td bgcolor='#ffd479' height='6'></td></tr>"
-        "</table>"
-        "</td>"
-        "</tr>"
-        "</table>"
-    ).arg(percent);
-
-    // Percentage
-    html += QStringLiteral(
-        "<div style='margin-top:6px;"
-        "color:#a8a8ad;"
-        "font-size:11px;'>"
-        "%1% complete"
-        "</div>"
-    ).arg(percent);
-
-    // Task title, if the backend supplied one.
-    if (!m_taskProgressTitle.isEmpty())
-    {
-        html += QStringLiteral(
-            "<div style='margin-top:8px;"
-            "color:#d8d8dc;"
-            "font-size:11px;'>"
-            "%1"
-            "</div>"
-        ).arg(m_taskProgressTitle.toHtmlEscaped());
-    }
-
-    // Individual task steps.
-    html += QStringLiteral(
-        "<div style='margin-top:8px;'>"
-    );
-
-    for (const QJsonValue &value : m_taskProgressItems)
-    {
-        const QJsonObject item = value.toObject();
-
-        const QString status =
-            item.value(QStringLiteral("status")).toString();
-
-        if (status == QLatin1String("not_applicable"))
-            continue;
-
-        const QString requirement =
-            item.value(QStringLiteral("requirement"))
-                .toString()
-                .toHtmlEscaped();
-
-        const bool isComplete =
-            status == QLatin1String("complete");
-
-        const QString glyph = isComplete
-            ? QStringLiteral("&#10003;")
-            : QStringLiteral("&#9675;");
-
-        const QString glyphColor = isComplete
-            ? QStringLiteral("#55D68A")
-            : QStringLiteral("#77777f");
-
-        html += QStringLiteral(
-            "<div style='margin-top:4px;'>"
-            "<span style='color:%1;font-size:12px;'>%2</span>"
-            "&nbsp;"
-            "<span style='color:#d8d8dc;font-size:11px;'>%3</span>"
-            "</div>"
-        ).arg(glyphColor, glyph, requirement);
-    }
-
-    html += QStringLiteral("</div>");
-
-    return html;
 }
 
 QString DynamicIslandWindow::markdownToHtmlFragment(const QString &markdown)
@@ -737,6 +596,9 @@ void DynamicIslandWindow::renderConversation()
 {
     // Preserve the user's viewport if they deliberately scrolled upward.
     const bool shouldFollowBottom = !m_userScrolledUp;
+    int scrollValue = 0;
+    if (QScrollBar *bar = m_chatView->verticalScrollBar())
+        scrollValue = bar->value();
 
     // A complete render is only used when the stable conversation changes
     // (for example after a user message, a completed assistant response,
@@ -748,19 +610,6 @@ void DynamicIslandWindow::renderConversation()
     QTextDocument *doc = m_chatView->document();
     doc->clear();
     cursor = QTextCursor(doc);
-
-    // Task progress is UI state, not conversation history. Always render
-    // the latest progress card before the conversation messages.
-    if (m_hasTaskProgress)
-    {
-        cursor = insertMessageBubble(
-            cursor,
-            QStringLiteral("Nexus"),
-            QStringLiteral("#ffd479"),
-            QColor(255, 255, 255, 13).name(QColor::HexArgb),
-            false,
-            taskProgressToHtmlFragment());
-    }
 
     for (int i = 0; i < m_messages.size(); ++i)
     {
@@ -789,74 +638,30 @@ void DynamicIslandWindow::renderConversation()
         }
     }
 
+    if (m_isStreaming && !m_activeStreamText.isEmpty())
+    {
+        cursor = insertMessageBubble(
+            cursor,
+            QStringLiteral("Nexus"),
+            QStringLiteral("#b9f6c8"),
+            QColor(255, 255, 255, 13).name(QColor::HexArgb),
+            false,
+            markdownToHtmlFragment(m_activeStreamText));
+    }
+
     m_chatView->setUpdatesEnabled(true);
     m_chatView->viewport()->update();
 
     if (shouldFollowBottom)
         scrollToBottom();
+    else if (QScrollBar *bar = m_chatView->verticalScrollBar())
+    {
+        m_programmaticScroll = true;
+        bar->setValue(scrollValue);
+        m_programmaticScroll = false;
+    }
 
     updateExpandedHeight();
-}
-
-void DynamicIslandWindow::createStreamingAssistantBubble()
-{
-    if (m_isStreaming)
-        return;
-
-    // The stable conversation is already rendered. Append exactly one
-    // assistant table and keep a cursor inside its body forever during this
-    // response.
-    QTextCursor cursor(m_chatView->document());
-    cursor.movePosition(QTextCursor::End);
-
-    QTextTableFormat tableFormat;
-    tableFormat.setBorder(0);
-    tableFormat.setCellPadding(0);
-    tableFormat.setCellSpacing(0);
-    tableFormat.setWidth(QTextLength(QTextLength::PercentageLength, 100));
-    tableFormat.setBottomMargin(8);
-    tableFormat.setRightMargin(32);
-
-    QTextTable *table = cursor.insertTable(1, 1, tableFormat);
-    QTextTableCell cell = table->cellAt(0, 0);
-
-    QTextTableCellFormat cellFormat;
-    cellFormat.setBackground(QColor(255, 255, 255, 13));
-    cellFormat.setTopPadding(8);
-    cellFormat.setBottomPadding(8);
-    cellFormat.setLeftPadding(12);
-    cellFormat.setRightPadding(12);
-    cell.setFormat(cellFormat);
-
-    m_streamCursor = cell.firstCursorPosition();
-
-    QTextCharFormat labelFormat;
-    labelFormat.setForeground(QColor(QStringLiteral("#b9f6c8")));
-    labelFormat.setFontWeight(QFont::DemiBold);
-    labelFormat.setFontPointSize(9);
-    m_streamCursor.insertText(QStringLiteral("Nexus"), labelFormat);
-    m_streamCursor.insertBlock();
-
-    // Keep body text visually consistent with the QTextBrowser's default
-    // font while preserving the cursor's ability to insert plain streamed
-    // text efficiently.
-    QTextCharFormat bodyFormat;
-    bodyFormat.setForeground(Qt::white);
-    bodyFormat.setFontPointSize(13);
-    m_streamCursor.setCharFormat(bodyFormat);
-
-    m_streamBuffer.clear();
-    m_activeStreamText.clear();
-    m_isStreaming = true;
-
-    // The indicator represents AI activity, not the window's visual state.
-    m_indicator->setState(NexusIndicator::State::Thinking);
-
-    if (!m_userScrolledUp)
-        scrollToBottom();
-
-    if (!m_heightUpdateTimer->isActive())
-        m_heightUpdateTimer->start(kHeightUpdateMs);
 }
 
 void DynamicIslandWindow::flushStreamBuffer()
@@ -864,20 +669,14 @@ void DynamicIslandWindow::flushStreamBuffer()
     if (m_streamBuffer.isEmpty())
         return;
 
-    if (!m_isStreaming)
-        createStreamingAssistantBubble();
-
+    m_isStreaming = true;
     const QString chunk = std::exchange(m_streamBuffer, QString());
     m_activeStreamText += chunk;
 
-    // Insert directly into the active body. No setHtml(), no rebuilding of
-    // previous messages, and no Markdown parsing during generation.
-    m_streamCursor.insertText(chunk);
+    renderConversation();
 
-    // Keep following the AI only while the user remains at the bottom.
-    // Once they scroll upward, streamed tokens leave their viewport alone.
-    if (!m_userScrolledUp)
-        scrollToBottom();
+    // The indicator represents AI activity
+    m_indicator->setState(NexusIndicator::State::Thinking);
 
     if (!m_heightUpdateTimer->isActive())
         m_heightUpdateTimer->start(kHeightUpdateMs);
@@ -900,13 +699,7 @@ void DynamicIslandWindow::finalizeStreamingResponse(const QString &fullText)
     m_input->setFocus();
     m_statusLabel->setText(QStringLiteral("Nexus AI"));
 
-    // Orange means the response has just completed while the panel is open.
-    // If the user collapsed the island during generation, return to the
-    // normal green idle indicator instead.
-    if (m_state == State::Idle || m_state == State::Compact)
-        m_indicator->setState(NexusIndicator::State::Idle);
-    else
-        m_indicator->setState(NexusIndicator::State::Active);
+    m_indicator->setState(NexusIndicator::State::Idle);
 }
 
 void DynamicIslandWindow::scrollToBottom()
@@ -977,7 +770,6 @@ void DynamicIslandWindow::handleServerState(const QString &state)
         m_streamBuffer.clear();
         m_activeStreamText.clear();
         m_isStreaming = false;
-        m_streamCursor = QTextCursor();
         m_input->setEnabled(false);
         setState(State::Expanded);
         // The assistant bubble is created lazily on the first token
@@ -989,9 +781,6 @@ void DynamicIslandWindow::handleServerState(const QString &state)
 
 void DynamicIslandWindow::handleToken(const QString &token)
 {
-    if (!m_isStreaming)
-        createStreamingAssistantBubble();
-
     m_streamBuffer += token;
 
     if (!m_streamCoalesceTimer->isActive())
@@ -1001,12 +790,6 @@ void DynamicIslandWindow::handleToken(const QString &token)
 void DynamicIslandWindow::handleResponseComplete(const QString &fullText)
 {
     finalizeStreamingResponse(fullText);
-}
-
-void DynamicIslandWindow::handleChecklist(const QString &title,
-                                          const QJsonArray &items)
-{
-    updateTaskProgress(title, items);
 }
 
 #ifdef Q_OS_WIN

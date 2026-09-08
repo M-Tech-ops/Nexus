@@ -30,7 +30,6 @@ signals:
     void stateReceived(const QString& state);
     void tokenReceived(const QString& token);
     void responseComplete(const QString& fullText);
-    void checklistReceived(const QString& title, const QJsonArray& items);
     void connectionError(const QString& errorString);
 
 private slots:

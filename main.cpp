@@ -2,7 +2,7 @@
 #include <QDebug>
 #include <QUrl>
 
-#include "DynamicislandWindow.h"
+#include "DynamicIslandWindow.h"
 #include "backend/WebSocketClient.h"
 
 int main(int argc, char *argv[])
@@ -20,8 +20,6 @@ int main(int argc, char *argv[])
                      &island, &DynamicIslandWindow::handleToken);
     QObject::connect(&wsClient, &WebSocketClient::responseComplete,
                      &island, &DynamicIslandWindow::handleResponseComplete);
-    QObject::connect(&wsClient, &WebSocketClient::checklistReceived,
-                     &island, &DynamicIslandWindow::handleChecklist);
 
     // Frontend -> backend: user interaction requests a prompt.
     QObject::connect(&island, &DynamicIslandWindow::promptRequested,

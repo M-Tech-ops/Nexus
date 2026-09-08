@@ -8,16 +8,15 @@ and checklist data.
 import json
 from pathlib import Path
 
+from core.config import Config
 from tasks.models import AgentTask, ChecklistItem, ChecklistStatus
 
-DEFAULT_STORAGE_PATH = (
-        Path(__file__).resolve().parents[1] / "data" / "tasks" / "agent_tasks.json"
-)
+DEFAULT_STORAGE_PATH = Config.TASKS_FILE
 
 
 class TaskService:
-    def __init__(self, storage_path: Path = DEFAULT_STORAGE_PATH):
-        self.storage_path = storage_path
+    def __init__(self, storage_path: Path | str = DEFAULT_STORAGE_PATH):
+        self.storage_path = Path(storage_path)
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
 
     def list_tasks(self) -> list[AgentTask]:

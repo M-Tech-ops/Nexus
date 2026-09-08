@@ -64,13 +64,7 @@ void WebSocketClient::onTextMessageReceived(const QString& message) {
     {
         emit responseComplete(obj.value("text").toString());
     }
-    else if (type == "checklist")
-    {
-        emit checklistReceived(
-            obj.value("title").toString(),
-            obj.value("items").toArray()
-        );
-    }
+
     // Unknown message types are ignored rather than treated as errors, so
     // the protocol can grow (e.g. adding an "error" type later) without
     // breaking older clients.

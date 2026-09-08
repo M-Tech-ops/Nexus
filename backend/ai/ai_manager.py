@@ -8,7 +8,7 @@ and run inference with conversation history.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterator, List, Dict
+from typing import Iterator
 
 from llama_cpp import Llama
 
@@ -16,11 +16,11 @@ from llama_cpp import Llama
 class AIManager:
 
     def __init__(
-        self,
-        model_path: str | Path,
-        n_ctx: int = 4096,
-        n_gpu_layers: int = -1,
-        verbose: bool = True,
+            self,
+            model_path: str | Path,
+            n_ctx: int = 16384,
+            n_gpu_layers: int = -1,
+            verbose: bool = True,
     ) -> None:
 
         model_path = Path(model_path)
@@ -42,11 +42,11 @@ class AIManager:
     # ---------------------------------------------------------
 
     def generate(
-        self,
-        prompt: str,
-        history: List[Dict[str, str]] | None = None,
-        max_tokens: int = 2048,
-        temperature: float = 0.7,
+            self,
+            prompt: str,
+            history: list[dict[str, str]] | None = None,
+            max_tokens: int = 2048,
+            temperature: float = 0.7,
     ) -> str:
 
         messages = self._build_messages(
@@ -67,11 +67,11 @@ class AIManager:
     # ---------------------------------------------------------
 
     def generate_stream(
-        self,
-        prompt: str,
-        history: List[Dict[str, str]] | None = None,
-        max_tokens: int = 2048,
-        temperature: float = 0.7,
+            self,
+            prompt: str,
+            history: list[dict[str, str]] | None = None,
+            max_tokens: int = 2048,
+            temperature: float = 0.7,
     ) -> Iterator[str]:
 
         messages = self._build_messages(
@@ -99,9 +99,9 @@ class AIManager:
 
     @staticmethod
     def _build_messages(
-        prompt: str,
-        history: List[Dict[str, str]] | None,
-    ) -> List[Dict[str, str]]:
+            prompt: str,
+            history: list[dict[str, str]] | None,
+    ) -> list[dict[str, str]]:
 
         messages = []
 
